@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>예약 설정</title>
+    <style>
+      :root {
+        --primary-color: #007bff;
+        --primary-hover-color: #0056b3;
+        --light-gray: #f8f9fa;
+        --gray-border: #dee2e6;
+        --text-color: #212529;
+        --label-color: #495057;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        background-color: var(--light-gray);
+        width: 280px;
+        padding: 16px;
+        color: var(--text-color);
+        border-radius: 16px;
+      }
+      h3 {
+        margin-top: 0;
+        margin-bottom: 20px;
+        text-align: center;
+        color: var(--primary-color);
+      }
+      div {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--label-color);
+      }
+      input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--gray-border);
+        border-radius: 6px;
+        box-sizing: border-box;
+        font-size: 14px;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+      }
+      input[type="text"]:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+      }
+      button {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 6px;
+        background-color: var(--primary-color);
+        color: white;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.15s ease-in-out;
+        margin-top: 10px;
+      }
+      button:hover {
+        background-color: var(--primary-hover-color);
+      }
+      #status {
+        margin-top: 15px;
+        text-align: center;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>예약 설정</h3>
+    <div>
+      <label for="targetDate">예약 날짜 (YYYY-MM-DD)</label>
+      <input type="text" id="targetDate" value="2025-09-17" />
+    </div>
+    <div>
+      <label for="preferredTimes">우선순위 시간 (쉼표로 구분)</label>
+      <input type="text" id="preferredTimes" value="18:50,20:30" />
+    </div>
+    <div>
+      <label for="preferredCheckboxes">우선순위 코트 번호 (쉼표로 구분)</label>
+      <input type="text" id="preferredCheckboxes" value="5,6" />
+    </div>
+    <div>
+      <label for="executionTime"
+        >예약 실행 시간 (HH:MM, 비워두면 즉시 실행)</label
+      >
+      <input type="text" id="executionTime" placeholder="예: 15:00" />
+    </div>
+    <button id="execute">실행</button>
+    <button id="stop" style="display: none">중지</button>
+    <div
+      id="countdownDisplay"
+      style="
+        display: none;
+        text-align: center;
+        font-weight: bold;
+        margin-top: 10px;
+      "
+    ></div>
+    <div id="status" style="color: green"></div>
+    <script type="module" src="../dist/popup.js"></script>
+  </body>
+</html>

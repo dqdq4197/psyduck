@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "고라파덕",
+  "version": "1.0",
+  "description": "파닥파닥",
+  "permissions": ["storage", "alarms", "scripting"],
+  "host_permissions": ["https://www.auc.or.kr/*"],
+  "action": {
+    "default_popup": "src/popup.html"
+  },
+  "background": {
+    "service_worker": "dist/background.js"
+  }
+}

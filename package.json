@@ -1,0 +1,18 @@
+{
+  "name": "psyduck",
+  "version": "1.0.0",
+  "author": "Heesu",
+  "main": "index.js",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.9",
+    "esbuild": "^0.25.9",
+    "typescript": "^5.9.2"
+  },
+  "packageManager": "pnpm@10.16.0+sha512.8066e7b034217b700a9a4dbb3a005061d641ba130a89915213a10b3ca4919c19c037bec8066afdc559b89635fdb806b16ea673f2468fbb28aabfa13c53e3f769"
+}
