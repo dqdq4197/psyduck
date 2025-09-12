@@ -1,5 +1,6 @@
 {
   "name": "psyduck",
+  "description": "Chrome extension",
   "version": "1.0.0",
   "author": "Heesu",
   "main": "index.js",
