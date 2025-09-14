@@ -218,7 +218,7 @@ function handleRuntimeMessage(message: {
     chrome.alarms.clearAll();
 
     chrome.alarms.create("runReservation", {
-      when: targetTime.getTime() - 2000,
+      when: targetTime.getTime() - 1000,
     });
 
     console.log(
