@@ -41,6 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "preferredCheckboxes",
       "executionTime",
       "scheduledExecutionTime",
+      "maxCheckboxesToClick",
     ],
     (result: StoredConfig) => {
       if (result.targetDate) targetDateEl.value = result.targetDate;
@@ -53,6 +54,19 @@ document.addEventListener("DOMContentLoaded", () => {
         preferredCheckboxesEl.value = courtNumbers.join(",");
       }
       if (result.executionTime) executionTimeEl.value = result.executionTime;
+
+      // Load maxCheckboxesToClick preference
+      if (result.maxCheckboxesToClick) {
+        const selectedRadio = document.querySelector(
+          `input[name="numCourts"][value="${result.maxCheckboxesToClick}"]`
+        ) as HTMLInputElement | null;
+        if (selectedRadio) {
+          selectedRadio.checked = true;
+        }
+      } else {
+        // Default to 2 if not set
+        (document.getElementById("courts2") as HTMLInputElement).checked = true;
+      }
 
       if (
         result.scheduledExecutionTime &&
@@ -133,6 +147,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   function getConfig(): Config {
+    const selectedNumCourts = document.querySelector(
+      'input[name="numCourts"]:checked'
+    ) as HTMLInputElement | null;
+    const maxCheckboxesToClick = selectedNumCourts
+      ? parseInt(selectedNumCourts.value, 10)
+      : 2;
+
     return {
       targetDate: targetDateEl.value,
       preferredTimes: preferredTimesEl.value.split(",").map((t) => t.trim()),
@@ -140,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .split(",")
         .map((c) => `facilityNo${c.trim()}`),
       executionTime: executionTimeEl.value,
-      maxCheckboxesToClick: 2,
+      maxCheckboxesToClick: maxCheckboxesToClick,
     };
   }
 

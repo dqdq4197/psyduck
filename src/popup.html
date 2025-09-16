@@ -72,6 +72,44 @@
         text-align: center;
         font-size: 14px;
       }
+      .radio-group {
+        display: flex;
+        border: 1px solid var(--gray-border);
+        border-radius: 6px;
+        height: 30px;
+        overflow: hidden;
+      }
+      .radio-group input[type="radio"] {
+        display: none;
+      }
+      .radio-group label {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        cursor: pointer;
+        background-color: var(--light-gray);
+        color: var(--label-color);
+        font-size: 14px;
+        font-weight: 500;
+        transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+        border-right: 1px solid var(--gray-border);
+      }
+      .radio-group label:last-child {
+        border-right: none;
+      }
+      .radio-group input[type="radio"]:checked + label {
+        background-color: var(--primary-color);
+        color: white;
+        font-weight: bold;
+      }
+      .radio-group label:hover {
+        background-color: #e9ecef;
+      }
+      .radio-group input[type="radio"]:checked + label:hover {
+        background-color: var(--primary-hover-color);
+      }
     </style>
   </head>
   <body>
@@ -87,6 +125,15 @@
     <div>
       <label for="preferredCheckboxes">우선순위 코트 번호 (쉼표로 구분)</label>
       <input type="text" id="preferredCheckboxes" value="5,6" />
+    </div>
+    <div>
+      <label>예약 코트 개수:</label>
+      <div class="radio-group">
+        <input type="radio" id="courts1" name="numCourts" value="1" />
+        <label for="courts1">1개 코트</label>
+        <input type="radio" id="courts2" name="numCourts" value="2" checked />
+        <label for="courts2">2개 코트</label>
+      </div>
     </div>
     <div>
       <label for="executionTime"

@@ -191,55 +191,56 @@ async function handleCheckboxSelection(
     }
 
     // Phase 2 & 3: Try Consecutive Pairs (Preferred Group first, then others)
-    console.log("[예약 봇] 연속된 코트 쌍을 탐색합니다.");
-    let groupsToSearch: number[][] = [];
-    let searchedGroups = new Set<number>();
+    // ONLY if maxClicks is 2 and we still need 2 clicks
+    if (maxClicks === 2 && remainingClicks >= 2) {
+        console.log("[예약 봇] 연속된 코트 쌍을 탐색합니다.");
+        let groupsToSearch: number[][] = [];
+        let searchedGroups = new Set<number>();
 
-    // Add preferred groups first
-    for (const preferredId of preferredIds) {
-      const courtNumber = parseInt(preferredId.replace("facilityNo", ""));
-      for (const group of courtGroups) {
-        if (group.includes(courtNumber) && !searchedGroups.has(group[0])) {
-          groupsToSearch.push(group);
-          searchedGroups.add(group[0]);
-          break;
+        // Add preferred groups first
+        for (const preferredId of preferredIds) {
+            const courtNumber = parseInt(preferredId.replace("facilityNo", ""));
+            for (const group of courtGroups) {
+                if (group.includes(courtNumber) && !searchedGroups.has(group[0])) {
+                    groupsToSearch.push(group);
+                    searchedGroups.add(group[0]);
+                    break;
+                }
+            }
         }
-      }
-    }
-    // Add remaining groups
-    for (const group of courtGroups) {
-      if (!searchedGroups.has(group[0])) {
-        groupsToSearch.push(group);
-      }
-    }
+        // Add remaining groups
+        for (const group of courtGroups) {
+            if (!searchedGroups.has(group[0])) {
+                groupsToSearch.push(group);
+            }
+        }
 
-    for (const group of groupsToSearch) {
-      if (remainingClicks <= 0) break;
-      const pairs = findConsecutivePairs(enabledCheckboxIds, group);
-      console.log(
-        `[예약 봇] 그룹 ${group[0]}-${
-          group[group.length - 1]
-        }에서 찾은 연속된 쌍:`,
-        pairs
-      );
-
-      for (const pair of pairs) {
-        if (remainingClicks >= 2) {
-          // Need 2 clicks for a pair
-          const clickedFromPair = await clickCheckboxes(pair, 2);
-          if (clickedFromPair.length === 2) {
-            // Ensure both were clicked
-            clickedIds = clickedIds.concat(clickedFromPair);
-            remainingClicks -= 2;
-            console.log(
-              `[예약 봇] 그룹 ${group[0]}-${
-                group[group.length - 1]
-              }에서 연속된 쌍 ${pair.join(",")} 선택 완료.`
-            );
+        for (const group of groupsToSearch) {
             if (remainingClicks <= 0) break;
-          }
+            const pairs = findConsecutivePairs(enabledCheckboxIds, group);
+            console.log(
+                `[예약 봇] 그룹 ${group[0]}-${
+                group[group.length - 1]
+                }에서 찾은 연속된 쌍:`,
+                pairs
+            );
+
+            for (const pair of pairs) {
+                if (remainingClicks >= 2) { // Need 2 clicks for a pair
+                    const clickedFromPair = await clickCheckboxes(pair, 2);
+                    if (clickedFromPair.length === 2) { // Ensure both were clicked
+                        clickedIds = clickedIds.concat(clickedFromPair);
+                        remainingClicks -= 2;
+                        console.log(
+                            `[예약 봇] 그룹 ${group[0]}-${
+                            group[group.length - 1]
+                            }에서 연속된 쌍 ${pair.join(",")} 선택 완료.`
+                        );
+                        if (remainingClicks <= 0) break;
+                    }
+                }
+            }
         }
-      }
     }
 
     // Phase 4: Try Any Remaining Available Courts
