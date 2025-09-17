@@ -1,7 +1,9 @@
 import { Config } from "./types";
 
+// --- Global State ---
 let aggressiveLoopTimeoutId: number | null = null;
 
+// --- Injected Scripts (Functions that run in the page context) ---
 /**
  * 웹 페이지에 주입되어 시간 슬롯을 찾아 클릭하는 스크립트입니다.
  * @param date - 찾을 예약 날짜 (YYYY-MM-DD).
@@ -56,6 +58,70 @@ function handleConfirmationScript(): boolean {
 }
 
 /**
+ * 웹 페이지에 주입되어 지정된 시간 슬롯을 일정 시간 동안 폴링하여 찾고 클릭합니다.
+ * @param date - 찾을 예약 날짜 (YYYY-MM-DD).
+ * @param times - 우선순위 시간 목록 (HH:MM).
+ * @param pollDurationMs - 폴링을 시도할 최대 시간 (밀리초).
+ * @returns 클릭된 시간 문자열 또는 찾지 못했을 경우 false.
+ */
+function pollForTimeSlotScript(
+  date: string,
+  times: string[],
+  pollDurationMs: number
+): Promise<string | false> {
+  // A simple script to be injected. Finds and clicks the time slot.
+  // Returns true if clicked, false otherwise.
+  function findAndClickScriptInjected(
+    date: string,
+    times: string[]
+  ): string | false {
+    // This function is executed in the page context
+    const dayElements = Array.from(document.querySelectorAll("td"));
+    const targetDay = dayElements.find((td) => {
+      const link = td.querySelector("a.possible");
+      if (link) {
+        const onclickAttr = link.getAttribute("onclick");
+        if (onclickAttr && onclickAttr.includes(`'${date}'`)) {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (targetDay) {
+      for (const time of times) {
+        const links = Array.from(targetDay.querySelectorAll("li.possible a"));
+        for (const link of links) {
+          if (link.textContent && link.textContent.includes(time)) {
+            (link as HTMLElement).click();
+            return link.textContent.trim(); // Return the clicked time
+          }
+        }
+      }
+    }
+    return false; // Not found
+  }
+
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      if (Date.now() - startTime > pollDurationMs) {
+        clearInterval(interval);
+        resolve(false); // 폴링 시간 만료, 찾지 못함
+        return;
+      }
+
+      const foundTime = findAndClickScriptInjected(date, times);
+      if (foundTime) {
+        clearInterval(interval);
+        resolve(foundTime); // 찾아서 클릭 성공!
+      }
+    }, 10); // 10ms마다 확인
+  });
+}
+
+// --- Core Aggressive Loop Logic ---
+/**
  * 공격적 탐색 루프를 시작하여 예약 시간 슬롯을 찾고 클릭합니다.
  * @param config - 예약 설정 (날짜, 시간, 코트 등).
  */
@@ -103,16 +169,33 @@ async function searchAndReload(tabId: number, config: Config) {
   console.log("[예약 봇] 탐색 루프를 실행합니다...");
 
   try {
-    const injectionResults = await chrome.scripting.executeScript({
-      target: { tabId: tabId },
-      func: findAndClickScript,
-      args: [config.targetDate, config.preferredTimes],
+    // 페이지 새로고침 후 로드 완료까지 대기
+    await new Promise((resolve) => {
+      const listener = (
+        updatedTabId: number,
+        changeInfo: chrome.tabs.OnUpdatedInfo
+      ) => {
+        if (updatedTabId === tabId && changeInfo.status === "complete") {
+          chrome.tabs.onUpdated.removeListener(listener);
+          setTimeout(resolve, 10); // 페이지 스크립트가 실행될 시간을 위한 작은 지연
+        }
+      };
+      chrome.tabs.onUpdated.addListener(listener);
+      chrome.tabs.reload(tabId); // 새로고침 시작
     });
 
-    // 주입된 스크립트의 결과 확인
+    // 이제 폴링 스크립트 주입
+    const injectionResults = await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      func: pollForTimeSlotScript, // 새로운 폴링 스크립트 주입
+      args: [config.targetDate, config.preferredTimes, 500], // 500ms 동안 폴링
+    });
+
+    // 폴링 스크립트의 결과 확인
     const result =
       injectionResults && injectionResults[0] && injectionResults[0].result;
     if (result) {
+      // 시간 슬롯을 찾아서 클릭했다면
       console.log(`[예약 봇] 성공! '${result}' 시간대를 찾아 클릭했습니다.`);
       clearTimeout(aggressiveLoopTimeoutId);
       aggressiveLoopTimeoutId = null;
@@ -123,62 +206,17 @@ async function searchAndReload(tabId: number, config: Config) {
         func: handleConfirmationScript,
       });
       console.log(
-        "[예약 봇] 확인창 처리 스크립트를 주입했습니다. 페이지 이동을 기다립니다..."
+        "[예약 봇] 확인창 처리 스크립트를 주입했습니다. 다음 단계는 콘텐츠 스크립트가 담당합니다."
       );
-
-      // Wait for the tab to navigate to the next step
-      await new Promise((resolve) => {
-        const listener = (
-          updatedTabId: number,
-          changeInfo: chrome.tabs.OnUpdatedInfo,
-          tab: chrome.tabs.Tab
-        ) => {
-          // Wait for the correct tab to finish loading the target URL
-          if (
-            updatedTabId === tabId &&
-            changeInfo.status === "complete" &&
-            tab.url?.includes("reservationStep2")
-          ) {
-            chrome.tabs.onUpdated.removeListener(listener);
-            resolve(tab);
-          }
-        };
-        chrome.tabs.onUpdated.addListener(listener);
-      });
-
-      console.log(
-        "[예약 봇] '시설 선택' 페이지 로드 완료. 콘텐츠 스크립트를 주입합니다."
-      );
-
-      // Manually inject the content script
-      await chrome.scripting.executeScript({
-        target: { tabId: tabId },
-        files: ["dist/content-script.js"],
-      });
-
       return; // 루프 종료
     }
 
-    // --- 찾지 못했다면, 새로고침하고 재귀 호출 ---
+    // --- 폴링으로 찾지 못했다면, 새로고침하고 재귀 호출 ---
     console.log(
       "[예약 봇] 시간대를 찾지 못했습니다. 페이지를 새로고침하고 다시 시도합니다..."
     );
 
-    await new Promise((resolve) => {
-      const listener = (
-        updatedTabId: number,
-        changeInfo: chrome.tabs.OnUpdatedInfo
-      ) => {
-        if (updatedTabId === tabId && changeInfo.status === "complete") {
-          chrome.tabs.onUpdated.removeListener(listener);
-          setTimeout(resolve, 50); // 페이지 스크립트가 실행될 시간을 위한 작은 지연
-        }
-      };
-      chrome.tabs.onUpdated.addListener(listener);
-      chrome.tabs.reload(tabId);
-    });
-
-    // 루프의 다음 반복 호출
+    // 루프의 다음 반복 호출 (새로고침을 트리거할 것임)
     searchAndReload(tabId, config);
   } catch (error) {
     console.error("[예약 봇] searchAndReload 루프 중 오류 발생:", error);
@@ -189,6 +227,7 @@ async function searchAndReload(tabId: number, config: Config) {
   }
 }
 
+// --- Event Listeners (Main entry points) ---
 /**
  * 런타임 메시지를 처리합니다 (팝업에서 보낸 메시지).
  * @param message - 수신된 메시지.
@@ -225,7 +264,7 @@ function handleRuntimeMessage(message: {
       `[예약 봇] 예약이 설정되었습니다: ${targetTime.toLocaleString()}.`
     );
   }
-  return true;
+  return false; // 응답이 비동기적으로 전송될 것임을 나타냅니다.
 }
 
 /**
