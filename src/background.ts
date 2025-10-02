@@ -1,4 +1,5 @@
 import { Config } from "./types";
+import { getScheduledExecutionTime } from "./utils";
 
 // --- Global State ---
 let aggressiveLoopTimeoutId: number | null = null;
@@ -235,36 +236,30 @@ async function searchAndReload(tabId: number, config: Config) {
  * @param sendResponse - 응답을 보내기 위한 함수.
  * @returns 응답이 비동기적으로 전송될 것임을 나타냅니다.
  */
-function handleRuntimeMessage(message: {
-  action: string;
-  config: Config;
-}): boolean {
+function handleRuntimeMessage(message: { action: string; config: Config }) {
   if (message.action === "runNow") {
     startAggressiveLoop(message.config);
-  } else if (message.action === "schedule") {
-    const [hours, minutes] = message.config.executionTime.split(":");
-    const targetTime = new Date();
-    targetTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+  }
 
-    if (targetTime.getTime() < Date.now()) {
-      targetTime.setDate(targetTime.getDate() + 1);
-    }
+  if (message.action === "schedule") {
+    const scheduledExecutionTime = getScheduledExecutionTime(
+      message.config.executionTime
+    );
 
     chrome.storage.local.set({
-      scheduledExecutionTime: targetTime.getTime(),
+      scheduledExecutionTime: scheduledExecutionTime.getTime(),
     });
 
     chrome.alarms.clearAll();
 
     chrome.alarms.create("runReservation", {
-      when: targetTime.getTime() - 1000,
+      when: scheduledExecutionTime.getTime() - 1000,
     });
 
     console.log(
-      `[예약 봇] 예약이 설정되었습니다: ${targetTime.toLocaleString()}.`
+      `[예약 봇] 예약이 설정되었습니다: ${scheduledExecutionTime.toLocaleString()}.`
     );
   }
-  return false; // 응답이 비동기적으로 전송될 것임을 나타냅니다.
 }
 
 /**

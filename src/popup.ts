@@ -1,4 +1,9 @@
 import { Config, StoredConfig } from "./types";
+import {
+  ConfigCodec,
+  formatDuration,
+  getScheduledExecutionTime,
+} from "./utils";
 
 document.addEventListener("DOMContentLoaded", () => {
   const targetDateEl = document.getElementById(
@@ -25,7 +30,6 @@ document.addEventListener("DOMContentLoaded", () => {
     executeBtn.style.display = "block";
     stopBtn.style.display = "none";
     countdownDisplay.style.display = "none";
-    statusEl.textContent = "";
   }
 
   function showStopButton() {
@@ -43,23 +47,37 @@ document.addEventListener("DOMContentLoaded", () => {
       "scheduledExecutionTime",
       "maxCheckboxesToClick",
     ],
-    (result: StoredConfig) => {
-      if (result.targetDate) targetDateEl.value = result.targetDate;
-      if (result.preferredTimes)
-        preferredTimesEl.value = result.preferredTimes.join(",");
-      if (result.preferredCheckboxes) {
-        const courtNumbers = result.preferredCheckboxes.map((id) =>
-          id.replace("facilityNo", "")
-        );
-        preferredCheckboxesEl.value = courtNumbers.join(",");
-      }
-      if (result.executionTime) executionTimeEl.value = result.executionTime;
+    (config: StoredConfig) => {
+      const {
+        targetDate,
+        preferredTimes,
+        preferredCheckboxes,
+        executionTime,
+        scheduledExecutionTime,
+        maxCheckboxesToClick,
+      } = ConfigCodec.encode(config);
 
-      // Load maxCheckboxesToClick preference
-      if (result.maxCheckboxesToClick) {
+      if (targetDate) {
+        targetDateEl.value = targetDate;
+      }
+
+      if (preferredTimes) {
+        preferredTimesEl.value = preferredTimes;
+      }
+
+      if (preferredCheckboxes) {
+        preferredCheckboxesEl.value = preferredCheckboxes;
+      }
+
+      if (executionTime) {
+        executionTimeEl.value = executionTime;
+      }
+
+      if (maxCheckboxesToClick) {
         const selectedRadio = document.querySelector(
-          `input[name="numCourts"][value="${result.maxCheckboxesToClick}"]`
-        ) as HTMLInputElement | null;
+          `input[name="numCourts"][value="${maxCheckboxesToClick}"]`
+        ) satisfies HTMLInputElement | null;
+
         if (selectedRadio) {
           selectedRadio.checked = true;
         }
@@ -68,11 +86,8 @@ document.addEventListener("DOMContentLoaded", () => {
         (document.getElementById("courts2") as HTMLInputElement).checked = true;
       }
 
-      if (
-        result.scheduledExecutionTime &&
-        result.scheduledExecutionTime > Date.now()
-      ) {
-        startCountdown(result.scheduledExecutionTime);
+      if (scheduledExecutionTime && scheduledExecutionTime > Date.now()) {
+        startCountdown(scheduledExecutionTime);
         showStopButton();
       } else {
         showExecuteButton();
@@ -81,7 +96,9 @@ document.addEventListener("DOMContentLoaded", () => {
   );
 
   function startCountdown(executionTime: number) {
-    if (typeof countdownInterval === "number") clearInterval(countdownInterval);
+    if (typeof countdownInterval === "number") {
+      clearInterval(countdownInterval);
+    }
 
     countdownInterval = setInterval(() => {
       const now = Date.now();
@@ -95,21 +112,18 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const seconds = Math.floor((remaining / 1000) % 60);
-      const minutes = Math.floor((remaining / (1000 * 60)) % 60);
-      const hours = Math.floor((remaining / (1000 * 60 * 60)) % 24);
-
-      countdownDisplay.textContent = `실행까지 남은 시간: ${String(
-        hours
-      ).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(
-        seconds
-      ).padStart(2, "0")}`;
+      countdownDisplay.textContent = `실행까지 남은 시간: ${formatDuration(
+        remaining
+      )}`;
       countdownDisplay.style.color = "#fd7e14";
     }, 1000);
   }
 
   executeBtn.addEventListener("click", () => {
-    if (typeof countdownInterval === "number") clearInterval(countdownInterval);
+    if (typeof countdownInterval === "number") {
+      clearInterval(countdownInterval);
+    }
+
     const config = getConfig();
     saveConfig(config);
 
@@ -118,11 +132,12 @@ document.addEventListener("DOMContentLoaded", () => {
       statusEl.textContent = `예약이 설정되었습니다: ${config.executionTime}`;
       statusEl.style.color = "green";
       showStopButton();
-      startCountdown(
-        new Date(
-          new Date().toDateString() + " " + config.executionTime
-        ).getTime()
+
+      const scheduledExecutionTime = getScheduledExecutionTime(
+        config.executionTime
       );
+
+      startCountdown(scheduledExecutionTime.getTime());
     } else {
       chrome.storage.local.remove("scheduledExecutionTime");
       chrome.runtime.sendMessage({ action: "runNow", config });
@@ -137,6 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
     chrome.storage.local.remove("scheduledExecutionTime");
 
     if (typeof countdownInterval === "number") {
+      countdownDisplay.textContent = "";
       clearInterval(countdownInterval);
     }
 
@@ -147,22 +163,17 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   function getConfig(): Config {
-    const selectedNumCourts = document.querySelector(
-      'input[name="numCourts"]:checked'
-    ) as HTMLInputElement | null;
-    const maxCheckboxesToClick = selectedNumCourts
-      ? parseInt(selectedNumCourts.value, 10)
-      : 2;
-
-    return {
+    return ConfigCodec.decode({
       targetDate: targetDateEl.value,
-      preferredTimes: preferredTimesEl.value.split(",").map((t) => t.trim()),
-      preferredCheckboxes: preferredCheckboxesEl.value
-        .split(",")
-        .map((c) => `facilityNo${c.trim()}`),
+      preferredTimes: preferredTimesEl.value,
+      preferredCheckboxes: preferredCheckboxesEl.value,
       executionTime: executionTimeEl.value,
-      maxCheckboxesToClick: maxCheckboxesToClick,
-    };
+      selectedNumCourts: (
+        document.querySelector(
+          'input[name="numCourts"]:checked'
+        ) as HTMLInputElement
+      ).value,
+    });
   }
 
   function saveConfig(config: Config) {
