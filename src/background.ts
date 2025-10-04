@@ -67,7 +67,7 @@ function findTimeSlotAndClickScript(
 
 // --- Core Aggressive Loop Logic ---
 /**
- * 공격적 탐색 루프를 시작하여 예약 시간 슬롯을 찾고 클릭합니다.
+ * 탐색 루프를 시작하여 예약 시간 슬롯을 찾고 클릭합니다.
  * @param config - 예약 설정 (날짜, 시간, 코트 등).
  */
 async function startAggressiveLoop(config: Config) {
@@ -80,7 +80,7 @@ async function startAggressiveLoop(config: Config) {
   });
 
   if (tabs.length === 0) {
-    console.log("[예약 봇] 예약 대상 탭을 찾을 수 없습니다.");
+    console.error("[예약 봇] 예약 대상 탭을 찾을 수 없습니다.");
     return;
   }
 
@@ -92,14 +92,14 @@ async function startAggressiveLoop(config: Config) {
 
   const tab = tabs[0]; // 첫 번째 탭을 대상으로 지정
   if (tab.id === undefined) {
-    console.log("[예약 봇] 대상 탭의 ID를 찾을 수 없습니다.");
+    console.error("[예약 봇] 대상 탭의 ID를 찾을 수 없습니다.");
     return;
   }
 
   // 전체 작업에 대한 타임아웃 설정 (예: 10초)
-  const TIMEOUT_MS = 30000;
+  const TIMEOUT_MS = 30 * 1_000;
   aggressiveLoopTimeoutId = setTimeout(() => {
-    console.log("[예약 봇] 공격적 탐색 루프 시간이 초과되었습니다.");
+    console.error(`[예약 봇] 탐색 루프 시간 타임아웃 ❗`);
     aggressiveLoopTimeoutId = null; // 플래그 초기화
     chrome.alarms.clear("runReservation"); // 보류 중인 알람 제거
   }, TIMEOUT_MS);
@@ -122,21 +122,6 @@ async function searchAndReload(tabId: number, config: Config) {
   console.log("[예약 봇] 탐색 루프를 실행합니다...");
 
   try {
-    // 페이지 새로고침 후 로드 완료까지 대기
-    await new Promise((resolve) => {
-      const listener = (
-        updatedTabId: number,
-        changeInfo: chrome.tabs.OnUpdatedInfo
-      ) => {
-        if (updatedTabId === tabId && changeInfo.status === "complete") {
-          chrome.tabs.onUpdated.removeListener(listener);
-          resolve(true); // 페이지 스크립트가 실행될 시간을 위한 작은 지연
-        }
-      };
-      chrome.tabs.onUpdated.addListener(listener);
-      chrome.tabs.reload(tabId); // 새로고침 시작
-    });
-
     const injectionResults = await chrome.scripting.executeScript({
       target: { tabId },
       func: findTimeSlotAndClickScript,
@@ -191,6 +176,21 @@ async function searchAndReload(tabId: number, config: Config) {
     console.log(
       "[예약 봇] 시간대를 찾지 못했습니다. 페이지를 새로고침하고 다시 시도합니다..."
     );
+
+    // 페이지 새로고침 후 로드 완료까지 대기
+    await new Promise((resolve) => {
+      const listener = (
+        updatedTabId: number,
+        changeInfo: chrome.tabs.OnUpdatedInfo
+      ) => {
+        if (updatedTabId === tabId && changeInfo.status === "complete") {
+          chrome.tabs.onUpdated.removeListener(listener);
+          resolve(true); // 페이지 스크립트가 실행될 시간을 위한 작은 지연
+        }
+      };
+      chrome.tabs.onUpdated.addListener(listener);
+      chrome.tabs.reload(tabId); // 새로고침 시작
+    });
 
     // 루프의 다음 반복 호출 (새로고침을 트리거할 것임)
     searchAndReload(tabId, config);
