@@ -59,66 +59,44 @@ function handleConfirmationScript(): boolean {
 }
 
 /**
- * 웹 페이지에 주입되어 지정된 시간 슬롯을 일정 시간 동안 폴링하여 찾고 클릭합니다.
+ * 웹 페이지에 주입되어 지정된 시간 슬롯을 찾고 클릭합니다.
  * @param date - 찾을 예약 날짜 (YYYY-MM-DD).
  * @param times - 우선순위 시간 목록 (HH:MM).
- * @param pollDurationMs - 폴링을 시도할 최대 시간 (밀리초).
  * @returns 클릭된 시간 문자열 또는 찾지 못했을 경우 false.
  */
-function pollForTimeSlotScript(
+function findTimeSlotAndClickScript(
   date: string,
-  times: string[],
-  pollDurationMs: number
-): Promise<string | false> {
-  // A simple script to be injected. Finds and clicks the time slot.
-  // Returns true if clicked, false otherwise.
-  function findAndClickScriptInjected(
-    date: string,
-    times: string[]
-  ): string | false {
-    // This function is executed in the page context
-    const dayElements = Array.from(document.querySelectorAll("td"));
-    const targetDay = dayElements.find((td) => {
-      const link = td.querySelector("a.possible");
-      if (link) {
-        const onclickAttr = link.getAttribute("onclick");
-        if (onclickAttr && onclickAttr.includes(`'${date}'`)) {
-          return true;
-        }
-      }
-      return false;
-    });
+  times: string[]
+): string | false {
+  const dayElements = Array.from(document.querySelectorAll("td"));
+  const targetDay = dayElements.find((td) => {
+    const link = td.querySelector("a.possible");
 
-    if (targetDay) {
-      for (const time of times) {
-        const links = Array.from(targetDay.querySelectorAll("li.possible a"));
-        for (const link of links) {
-          if (link.textContent && link.textContent.includes(time)) {
-            (link as HTMLElement).click();
-            return link.textContent.trim(); // Return the clicked time
-          }
+    if (link) {
+      const onclickAttr = link.getAttribute("onclick");
+      if (onclickAttr && onclickAttr.includes(`'${date}'`)) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+
+  if (targetDay) {
+    for (const time of times) {
+      const links = Array.from(targetDay.querySelectorAll("li.possible a"));
+
+      for (const link of links) {
+        if (link.textContent && link.textContent.includes(time)) {
+          (link as HTMLElement).click();
+
+          return link.textContent.trim(); // Return the clicked time
         }
       }
     }
-    return false; // Not found
   }
 
-  return new Promise((resolve) => {
-    const startTime = Date.now();
-    const interval = setInterval(() => {
-      if (Date.now() - startTime > pollDurationMs) {
-        clearInterval(interval);
-        resolve(false); // 폴링 시간 만료, 찾지 못함
-        return;
-      }
-
-      const foundTime = findAndClickScriptInjected(date, times);
-      if (foundTime) {
-        clearInterval(interval);
-        resolve(foundTime); // 찾아서 클릭 성공!
-      }
-    }, 10); // 10ms마다 확인
-  });
+  return false; // Not found
 }
 
 // --- Core Aggressive Loop Logic ---
@@ -193,16 +171,15 @@ async function searchAndReload(tabId: number, config: Config) {
       chrome.tabs.reload(tabId); // 새로고침 시작
     });
 
-    // 이제 폴링 스크립트 주입
     const injectionResults = await chrome.scripting.executeScript({
-      target: { tabId: tabId },
-      func: pollForTimeSlotScript, // 새로운 폴링 스크립트 주입
-      args: [config.targetDate, config.preferredTimes, 500], // 500ms 동안 폴링
+      target: { tabId },
+      func: findTimeSlotAndClickScript,
+      args: [config.targetDate, config.preferredTimes],
     });
 
-    // 폴링 스크립트의 결과 확인
     const result =
       injectionResults && injectionResults[0] && injectionResults[0].result;
+
     if (result) {
       // 시간 슬롯을 찾아서 클릭했다면
       console.log(`[예약 봇] 성공! '${result}' 시간대를 찾아 클릭했습니다.`);
@@ -220,7 +197,7 @@ async function searchAndReload(tabId: number, config: Config) {
       return; // 루프 종료
     }
 
-    // --- 폴링으로 찾지 못했다면, 새로고침하고 재귀 호출 ---
+    // --- 찾지 못했다면, 새로고침하고 재귀 호출 ---
     console.log(
       "[예약 봇] 시간대를 찾지 못했습니다. 페이지를 새로고침하고 다시 시도합니다..."
     );
