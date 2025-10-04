@@ -153,12 +153,11 @@ async function startAggressiveLoop(config: Config) {
   }
 
   // 전체 작업에 대한 타임아웃 설정 (예: 10초)
-  const TIMEOUT_MS = 10000;
+  const TIMEOUT_MS = 30000;
   aggressiveLoopTimeoutId = setTimeout(() => {
     console.log("[예약 봇] 공격적 탐색 루프 시간이 초과되었습니다.");
     aggressiveLoopTimeoutId = null; // 플래그 초기화
     chrome.alarms.clear("runReservation"); // 보류 중인 알람 제거
-    console.error("예약 탐색 시간이 초과되었습니다.");
   }, TIMEOUT_MS);
 
   searchAndReload(tab.id, config);
