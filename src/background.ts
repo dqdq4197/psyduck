@@ -4,40 +4,6 @@ import { getScheduledExecutionTime } from "./utils";
 // --- Global State ---
 let aggressiveLoopTimeoutId: number | null = null;
 
-// --- Injected Scripts (Functions that run in the page context) ---
-/**
- * 웹 페이지에 주입되어 시간 슬롯을 찾아 클릭하는 스크립트입니다.
- * @param date - 찾을 예약 날짜 (YYYY-MM-DD).
- * @param times - 우선순위 시간 목록 (HH:MM).
- * @returns 클릭된 시간 문자열 또는 찾지 못했을 경우 false.
- */
-function findAndClickScript(date: string, times: string[]): string | false {
-  const dayElements = Array.from(document.querySelectorAll("td"));
-  const targetDay = dayElements.find((td) => {
-    const link = td.querySelector("a.possible");
-    if (link) {
-      const onclickAttr = link.getAttribute("onclick");
-      if (onclickAttr && onclickAttr.includes(`'${date}'`)) {
-        return true;
-      }
-    }
-    return false;
-  });
-
-  if (targetDay) {
-    for (const time of times) {
-      const links = Array.from(targetDay.querySelectorAll("li.possible a"));
-      for (const link of links) {
-        if (link.textContent && link.textContent.includes(time)) {
-          (link as HTMLElement).click();
-          return link.textContent.trim(); // Return the clicked time
-        }
-      }
-    }
-  }
-  return false; // Not found
-}
-
 /**
  * 웹 페이지에 주입되어 확인 팝업을 처리하는 스크립트입니다.
  * @returns 확인 버튼 클릭 성공 여부.
@@ -194,6 +160,7 @@ async function searchAndReload(tabId: number, config: Config) {
       console.log(
         "[예약 봇] 확인창 처리 스크립트를 주입했습니다. 다음 단계는 콘텐츠 스크립트가 담당합니다."
       );
+
       return; // 루프 종료
     }
 
