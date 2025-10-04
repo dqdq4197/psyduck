@@ -131,15 +131,24 @@ async function startAggressiveLoop(config: Config) {
     `[예약 봇] 탐색 루프를 시작. 대상: ${config.targetDate} ${config.preferredTimes}`
   );
 
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (
-    !tab ||
-    tab.id === undefined ||
-    !tab.url?.startsWith("https://www.auc.or.kr/")
-  ) {
+  const tabs = await chrome.tabs.query({
+    url: "https://www.auc.or.kr/reservation/*",
+  });
+
+  if (tabs.length === 0) {
+    console.log("[예약 봇] 예약 대상 탭을 찾을 수 없습니다.");
+    return;
+  }
+
+  if (tabs.length > 1) {
     console.log(
-      "[예약 봇] 대상 웹사이트가 아니거나 활성 탭을 찾을 수 없습니다."
+      `[예약 봇] ${tabs.length}개의 예약 탭이 감지되었습니다. 첫 번째 탭을 대상으로 작업을 시작합니다.`
     );
+  }
+
+  const tab = tabs[0]; // 첫 번째 탭을 대상으로 지정
+  if (tab.id === undefined) {
+    console.log("[예약 봇] 대상 탭의 ID를 찾을 수 없습니다.");
     return;
   }
 
