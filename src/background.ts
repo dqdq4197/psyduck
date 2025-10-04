@@ -130,7 +130,7 @@ async function searchAndReload(tabId: number, config: Config) {
       ) => {
         if (updatedTabId === tabId && changeInfo.status === "complete") {
           chrome.tabs.onUpdated.removeListener(listener);
-          setTimeout(resolve, 10); // 페이지 스크립트가 실행될 시간을 위한 작은 지연
+          resolve(true); // 페이지 스크립트가 실행될 시간을 위한 작은 지연
         }
       };
       chrome.tabs.onUpdated.addListener(listener);
@@ -154,12 +154,35 @@ async function searchAndReload(tabId: number, config: Config) {
 
       // 이제 확인 스크립트 주입
       await chrome.scripting.executeScript({
-        target: { tabId: tabId },
+        target: { tabId },
         func: handleConfirmationScript,
       });
-      console.log(
-        "[예약 봇] 확인창 처리 스크립트를 주입했습니다. 다음 단계는 콘텐츠 스크립트가 담당합니다."
-      );
+
+      console.log("[예약 봇] 확인창 처리 완료.");
+
+      // 예약 단계 2 페이지가 로드될 때까지 대기
+      await new Promise((resolve) => {
+        const listener = (
+          updatedTabId: number,
+          changeInfo: chrome.tabs.OnUpdatedInfo,
+          tab: chrome.tabs.Tab
+        ) => {
+          if (
+            updatedTabId === tabId &&
+            changeInfo.status === "complete" &&
+            tab.url?.includes("reservationStep2")
+          ) {
+            chrome.tabs.onUpdated.removeListener(listener);
+            resolve(tab);
+          }
+        };
+        chrome.tabs.onUpdated.addListener(listener);
+      });
+
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["dist/content-script.js"],
+      });
 
       return; // 루프 종료
     }
