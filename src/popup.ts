@@ -38,6 +38,18 @@ document.addEventListener("DOMContentLoaded", () => {
     countdownDisplay.style.display = "block";
   }
 
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.action === "loopStarted") {
+      showStopButton();
+      statusEl.textContent = "예약을 시도하는 중입니다...";
+      statusEl.style.color = "blue";
+    } else if (message.action === "loopStopped") {
+      showExecuteButton();
+      statusEl.textContent = "예약 시도가 중지되었습니다.";
+      statusEl.style.color = "red";
+    }
+  });
+
   chrome.storage.local.get(
     [
       "targetDate",
@@ -108,7 +120,6 @@ document.addEventListener("DOMContentLoaded", () => {
         clearInterval(countdownInterval);
         countdownDisplay.textContent = "예약 실행 시간이 되었습니다!";
         countdownDisplay.style.color = "#007bff";
-        showExecuteButton();
         return;
       }
 
@@ -143,11 +154,12 @@ document.addEventListener("DOMContentLoaded", () => {
       chrome.runtime.sendMessage({ action: "runNow", config });
       statusEl.textContent = "예약을 즉시 실행합니다!";
       statusEl.style.color = "green";
-      showExecuteButton();
+      showStopButton();
     }
   });
 
   stopBtn.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ action: "stopLoop" });
     chrome.alarms.clear("runReservation");
     chrome.storage.local.remove("scheduledExecutionTime");
 

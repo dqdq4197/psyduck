@@ -75,12 +75,15 @@ async function startAggressiveLoop(config: Config) {
     `[예약 봇] 탐색 루프를 시작. 대상: ${config.targetDate} ${config.preferredTimes}`
   );
 
+  chrome.runtime.sendMessage({ action: "loopStarted" });
+
   const tabs = await chrome.tabs.query({
     url: "https://www.auc.or.kr/reservation/*",
   });
 
   if (tabs.length === 0) {
     console.error("[예약 봇] 예약 대상 탭을 찾을 수 없습니다.");
+    chrome.runtime.sendMessage({ action: "loopStopped" });
     return;
   }
 
@@ -93,18 +96,30 @@ async function startAggressiveLoop(config: Config) {
   const tab = tabs[0]; // 첫 번째 탭을 대상으로 지정
   if (tab.id === undefined) {
     console.error("[예약 봇] 대상 탭의 ID를 찾을 수 없습니다.");
+    chrome.runtime.sendMessage({ action: "loopStopped" });
     return;
   }
 
-  // 전체 작업에 대한 타임아웃 설정 (예: 10초)
+  // 전체 작업에 대한 타임아웃 설정 (예: 30초)
   const TIMEOUT_MS = 30 * 1_000;
   aggressiveLoopTimeoutId = setTimeout(() => {
     console.error(`[예약 봇] 탐색 루프 시간 타임아웃 ❗`);
-    aggressiveLoopTimeoutId = null; // 플래그 초기화
-    chrome.alarms.clear("runReservation"); // 보류 중인 알람 제거
+    stopAggressiveLoop();
   }, TIMEOUT_MS);
 
   searchAndReload(tab.id, config);
+}
+
+/**
+ * 탐색 루프를 중지합니다.
+ */
+function stopAggressiveLoop() {
+  if (aggressiveLoopTimeoutId !== null) {
+    clearTimeout(aggressiveLoopTimeoutId);
+    aggressiveLoopTimeoutId = null;
+    console.log("[예약 봇] 탐색 루프가 중지되었습니다.");
+    chrome.runtime.sendMessage({ action: "loopStopped" });
+  }
 }
 
 /**
@@ -116,6 +131,7 @@ async function searchAndReload(tabId: number, config: Config) {
   // 타임아웃이 초기화되었다면, 프로세스가 중지되었거나 완료된 것입니다.
   if (aggressiveLoopTimeoutId === null) {
     console.log("[예약 봇] 루프가 중단되었습니다 (시간 초과 또는 성공).");
+    chrome.runtime.sendMessage({ action: "loopStopped" });
     return;
   }
 
@@ -134,8 +150,7 @@ async function searchAndReload(tabId: number, config: Config) {
     if (result) {
       // 시간 슬롯을 찾아서 클릭했다면
       console.log(`[예약 봇] 성공! '${result}' 시간대를 찾아 클릭했습니다.`);
-      clearTimeout(aggressiveLoopTimeoutId);
-      aggressiveLoopTimeoutId = null;
+      stopAggressiveLoop();
 
       // 이제 확인 스크립트 주입
       await chrome.scripting.executeScript({
@@ -196,10 +211,7 @@ async function searchAndReload(tabId: number, config: Config) {
     searchAndReload(tabId, config);
   } catch (error) {
     console.error("[예약 봇] searchAndReload 루프 중 오류 발생:", error);
-    if (aggressiveLoopTimeoutId !== null) {
-      clearTimeout(aggressiveLoopTimeoutId);
-      aggressiveLoopTimeoutId = null;
-    }
+    stopAggressiveLoop();
   }
 }
 
@@ -214,6 +226,10 @@ async function searchAndReload(tabId: number, config: Config) {
 function handleRuntimeMessage(message: { action: string; config: Config }) {
   if (message.action === "runNow") {
     startAggressiveLoop(message.config);
+  }
+
+  if (message.action === "stopLoop") {
+    stopAggressiveLoop();
   }
 
   if (message.action === "schedule") {
