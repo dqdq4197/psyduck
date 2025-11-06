@@ -101,7 +101,7 @@ async function startAggressiveLoop(config: Config) {
   }
 
   // 전체 작업에 대한 타임아웃 설정 (예: 30초)
-  const TIMEOUT_MS = 30 * 1_000;
+  const TIMEOUT_MS = 60 * 60 * 1_000;
   aggressiveLoopTimeoutId = setTimeout(() => {
     console.error(`[예약 봇] 탐색 루프 시간 타임아웃 ❗`);
     stopAggressiveLoop();
